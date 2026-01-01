@@ -1,0 +1,163 @@
+-- Takamura Hub | Toggle Edition
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Player = Players.LocalPlayer
+
+-- STATES
+local FlyEnabled = false
+local SpeedEnabled = false
+local HitboxEnabled = false
+local GodModeEnabled = false
+local NoDodgeEnabled = false
+
+local FlySpeed = 80
+local WalkSpeed = 60
+local HitboxSize = 20
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
+ScreenGui.ResetOnSpawn = false
+
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 520, 0, 360)
+Main.Position = UDim2.new(0.5,-260,0.5,-180)
+Main.BackgroundColor3 = Color3.fromRGB(18,18,18)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,12)
+
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "Takamura Hub | Blox Fruits"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+
+-- BUTTON CREATOR
+local function ToggleButton(text, y)
+	local b = Instance.new("TextButton", Main)
+	b.Size = UDim2.new(0,220,0,40)
+	b.Position = UDim2.new(0,20,0,y)
+	b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	b.Text = text .. ": OFF"
+	b.Font = Enum.Font.Gotham
+	b.TextSize = 15
+	b.TextColor3 = Color3.fromRGB(255,255,255)
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+	return b
+end
+
+-- BUTTONS
+local FlyBtn     = ToggleButton("Fly", 60)
+local SpeedBtn   = ToggleButton("Speed", 110)
+local HitboxBtn  = ToggleButton("Hitbox", 160)
+local GodBtn     = ToggleButton("GodMode", 210)
+local DodgeBtn   = ToggleButton("No Dodge CD", 260)
+
+---------------------------------------------------
+-- FLY
+---------------------------------------------------
+local FlyBV
+FlyBtn.MouseButton1Click:Connect(function()
+	FlyEnabled = not FlyEnabled
+	FlyBtn.Text = FlyEnabled and "Fly: ON" or "Fly: OFF"
+
+	local char = Player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	if FlyEnabled then
+		FlyBV = Instance.new("BodyVelocity", hrp)
+		FlyBV.MaxForce = Vector3.new(1e9,1e9,1e9)
+	else
+		if FlyBV then FlyBV:Destroy() end
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if FlyEnabled and FlyBV then
+		FlyBV.Velocity = workspace.CurrentCamera.CFrame.LookVector * FlySpeed
+	end
+end)
+
+---------------------------------------------------
+-- SPEED
+---------------------------------------------------
+SpeedBtn.MouseButton1Click:Connect(function()
+	SpeedEnabled = not SpeedEnabled
+	SpeedBtn.Text = SpeedEnabled and "Speed: ON" or "Speed: OFF"
+
+	local hum = Player.Character and Player.Character:FindFirstChild("Humanoid")
+	if hum then
+		hum.WalkSpeed = SpeedEnabled and WalkSpeed or 16
+	end
+end)
+
+---------------------------------------------------
+-- HITBOX
+---------------------------------------------------
+HitboxBtn.MouseButton1Click:Connect(function()
+	HitboxEnabled = not HitboxEnabled
+	HitboxBtn.Text = HitboxEnabled and "Hitbox: ON" or "Hitbox: OFF"
+end)
+
+task.spawn(function()
+	while task.wait(0.5) do
+		if HitboxEnabled then
+			pcall(function()
+				for _,v in pairs(workspace.Enemies:GetChildren()) do
+					if v:FindFirstChild("HumanoidRootPart") then
+						v.HumanoidRootPart.Size = Vector3.new(HitboxSize,HitboxSize,HitboxSize)
+						v.HumanoidRootPart.CanCollide = false
+						v.HumanoidRootPart.Transparency = 0.7
+					end
+				end
+			end)
+		end
+	end
+end)
+
+---------------------------------------------------
+-- GOD MODE
+---------------------------------------------------
+GodBtn.MouseButton1Click:Connect(function()
+	GodModeEnabled = not GodModeEnabled
+	GodBtn.Text = GodModeEnabled and "GodMode: ON" or "GodMode: OFF"
+end)
+
+task.spawn(function()
+	while task.wait(0.2) do
+		if GodModeEnabled then
+			pcall(function()
+				Player.Character.Humanoid.Health = math.huge
+			end)
+		end
+	end
+end)
+
+---------------------------------------------------
+-- NO DODGE COOLDOWN
+---------------------------------------------------
+DodgeBtn.MouseButton1Click:Connect(function()
+	NoDodgeEnabled = not NoDodgeEnabled
+	DodgeBtn.Text = NoDodgeEnabled and "No Dodge CD: ON" or "No Dodge CD: OFF"
+
+	if NoDodgeEnabled then
+		pcall(function()
+			Player.Character.Dodge.Disabled = true
+		end)
+	end
+end)
+
+---------------------------------------------------
+-- GUI TOGGLE
+---------------------------------------------------
+UIS.InputBegan:Connect(function(i,gp)
+	if gp then return end
+	if i.KeyCode == Enum.KeyCode.RightShift then
+		Main.Visible = not Main.Visible
+	end
+end)
