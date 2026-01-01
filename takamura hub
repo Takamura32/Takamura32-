@@ -1,0 +1,206 @@
+--[[ 
+    Takamura Hub v2 | Blox Fruits
+    All-in-One
+]]--
+
+-- SERVICES
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- STATES
+local FlyEnabled = false
+local GodModeEnabled = false
+local RangeEnabled = false
+
+local FlySpeed = 80
+local WalkSpeed = 16
+
+-- CHARACTER
+local function Char()
+    return Player.Character or Player.CharacterAdded:Wait()
+end
+
+--------------------------------------------------
+-- GUI
+--------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui", Player.PlayerGui)
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Name = "TakamuraHub"
+
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 600, 0, 400)
+Main.Position = UDim2.new(0.5,-300,0.5,-200)
+Main.BackgroundColor3 = Color3.fromRGB(18,18,18)
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,12)
+
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "Takamura Hub | Blox Fruits"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
+Title.TextColor3 = Color3.new(1,1,1)
+
+-- UI Helpers
+local function Button(text, x, y)
+    local b = Instance.new("TextButton", Main)
+    b.Size = UDim2.new(0,200,0,40)
+    b.Position = UDim2.new(0,x,0,y)
+    b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    b.Text = text
+    b.Font = Enum.Font.Gotham
+    b.TextSize = 15
+    b.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+    return b
+end
+
+local function Slider(name, x, y, min, max, default, callback)
+    local label = Instance.new("TextLabel", Main)
+    label.Position = UDim2.new(0,x,0,y)
+    label.Size = UDim2.new(0,200,0,25)
+    label.BackgroundTransparency = 1
+    label.Text = name..": "..default
+    label.TextColor3 = Color3.new(1,1,1)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 14
+
+    local bar = Instance.new("Frame", Main)
+    bar.Position = UDim2.new(0,x,0,y+28)
+    bar.Size = UDim2.new(0,200,0,6)
+    bar.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(1,0)
+
+    local fill = Instance.new("Frame", bar)
+    fill.Size = UDim2.new((default-min)/(max-min),0,1,0)
+    fill.BackgroundColor3 = Color3.fromRGB(120,120,120)
+    Instance.new("UICorner", fill).CornerRadius = UDim.new(1,0)
+
+    local dragging = false
+    bar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+    end)
+    UIS.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+
+    UIS.InputChanged:Connect(function(i)
+        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local pct = math.clamp((i.Position.X - bar.AbsolutePosition.X)/bar.AbsoluteSize.X,0,1)
+            fill.Size = UDim2.new(pct,0,1,0)
+            local val = math.floor(min + (max-min)*pct)
+            label.Text = name..": "..val
+            callback(val)
+        end
+    end)
+end
+
+--------------------------------------------------
+-- MOVEMENT
+--------------------------------------------------
+-- Fly
+local FlyBV
+Button("Fly: ON / OFF", 20, 60).MouseButton1Click:Connect(function()
+    FlyEnabled = not FlyEnabled
+    local hrp = Char():WaitForChild("HumanoidRootPart")
+    if FlyEnabled then
+        FlyBV = Instance.new("BodyVelocity", hrp)
+        FlyBV.MaxForce = Vector3.new(1e9,1e9,1e9)
+    else
+        if FlyBV then FlyBV:Destroy() end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if FlyEnabled and FlyBV then
+        FlyBV.Velocity = Camera.CFrame.LookVector * FlySpeed
+    end
+end)
+
+-- Speed Slider
+Slider("WalkSpeed", 20, 120, 16, 100, 16, function(v)
+    WalkSpeed = v
+    Char():WaitForChild("Humanoid").WalkSpeed = v
+end)
+
+-- Fly Speed Slider
+Slider("FlySpeed", 20, 180, 20, 200, 80, function(v)
+    FlySpeed = v
+end)
+
+--------------------------------------------------
+-- GOD MODE (kein Heal-Bug)
+--------------------------------------------------
+Button("GodMode: ON / OFF", 20, 260).MouseButton1Click:Connect(function()
+    GodModeEnabled = not GodModeEnabled
+end)
+
+task.spawn(function()
+    while task.wait() do
+        if GodModeEnabled then
+            local hum = Char():FindFirstChild("Humanoid")
+            if hum then
+                local hp = hum.Health
+                hum.HealthChanged:Once(function()
+                    hum.Health = hp
+                end)
+            end
+        end
+    end
+end)
+
+--------------------------------------------------
+-- ATTACK RANGE (GANZE INSEL)
+--------------------------------------------------
+local CombatFramework = require(Player.PlayerScripts.CombatFramework)
+local oldAttack = CombatFramework.activeController.attack
+
+CombatFramework.activeController.attack = function(self, ...)
+    if RangeEnabled then
+        local hits = {}
+        for _,v in pairs(workspace.Enemies:GetChildren()) do
+            if v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                table.insert(hits, v.HumanoidRootPart)
+            end
+        end
+        return oldAttack(self, hits)
+    end
+    return oldAttack(self, ...)
+end
+
+Button("Attack Range: ON / OFF", 240, 60).MouseButton1Click:Connect(function()
+    RangeEnabled = not RangeEnabled
+end)
+
+--------------------------------------------------
+-- TELEPORT (BEISPIEL – ERWEITERBAR)
+--------------------------------------------------
+local Islands = {
+    Starter = CFrame.new(0,10,0),
+    Jungle = CFrame.new(-1400,40,300),
+    Desert = CFrame.new(900,40,4300),
+    Sky = CFrame.new(-5000,800, -2000),
+}
+
+local y = 120
+for name,cf in pairs(Islands) do
+    Button("TP: "..name, 240, y).MouseButton1Click:Connect(function()
+        Char():WaitForChild("HumanoidRootPart").CFrame = cf
+    end)
+    y += 50
+end
+
+--------------------------------------------------
+-- GUI TOGGLE
+--------------------------------------------------
+UIS.InputBegan:Connect(function(i,gp)
+    if gp then return end
+    if i.KeyCode == Enum.KeyCode.RightShift then
+        Main.Visible = not Main.Visible
+    end
+end)
